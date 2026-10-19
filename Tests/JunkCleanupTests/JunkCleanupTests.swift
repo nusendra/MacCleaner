@@ -7,7 +7,7 @@ private final class FakeHome {
     let root: URL
 
     init() throws {
-        root = FileManager.default.temporaryDirectory.appending(path: "mclean-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        root = FileManager.default.temporaryDirectory.appending(path: "maccleaner-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
 

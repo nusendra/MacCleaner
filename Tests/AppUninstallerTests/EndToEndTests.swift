@@ -4,23 +4,23 @@ import Testing
 @testable import JunkCleanup
 
 /// Installs a throwaway app with real preferences, caches, support files and a loaded launch agent in the real
-/// home folder, uninstalls it, and checks that everything is gone. Opt-in: `MCLEAN_E2E=1 make test`.
+/// home folder, uninstalls it, and checks that everything is gone. Opt-in: `MACCLEANER_E2E=1 make test`.
 /// The removed probe files end up in the Trash.
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["MCLEAN_E2E"] == "1"), .serialized)
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["MACCLEANER_E2E"] == "1"), .serialized)
 struct EndToEndUninstallTests {
-    static let bundleID = "com.mclean.e2eprobe"
+    static let bundleID = "com.maccleaner.e2eprobe"
 
     @Test func uninstallsAProbeAppCompletely() async throws {
         let fm = FileManager.default
         let home = JunkPaths.current.home
-        let app = home.appending(path: "Applications/MClean E2E Probe.app")
-        let support = home.appending(path: "Library/Application Support/MClean E2E Probe")
+        let app = home.appending(path: "Applications/MacCleaner E2E Probe.app")
+        let support = home.appending(path: "Library/Application Support/MacCleaner E2E Probe")
         let cache = home.appending(path: "Library/Caches/\(Self.bundleID)")
         let agent = home.appending(path: "Library/LaunchAgents/\(Self.bundleID).agent.plist")
 
         // Install.
         try fm.createDirectory(at: app.appending(path: "Contents/MacOS"), withIntermediateDirectories: true)
-        let info: [String: Any] = ["CFBundleIdentifier": Self.bundleID, "CFBundleName": "MClean E2E Probe", "CFBundleExecutable": "probe"]
+        let info: [String: Any] = ["CFBundleIdentifier": Self.bundleID, "CFBundleName": "MacCleaner E2E Probe", "CFBundleExecutable": "probe"]
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: app.appending(path: "Contents/Info.plist"))
         let executable = app.appending(path: "Contents/MacOS/probe")
         try Data("#!/bin/sh\nsleep 600\n".utf8).write(to: executable)

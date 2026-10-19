@@ -83,7 +83,7 @@ import Testing
     }
 
     @Test func findsPreferenceAndContainerLeftoversButNotSystemOnes() throws {
-        let home = FileManager.default.temporaryDirectory.appending(path: "mclean-leftovers-\(UUID().uuidString)")
+        let home = FileManager.default.temporaryDirectory.appending(path: "maccleaner-leftovers-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: home) }
         let prefs = home.appending(path: "Library/Preferences")
         try FileManager.default.createDirectory(at: prefs, withIntermediateDirectories: true)
@@ -101,7 +101,7 @@ import Testing
 
 @Suite struct ResourceScannerTests {
     @Test func collectsMatchingFilesAcrossLibraryFolders() throws {
-        let home = FileManager.default.temporaryDirectory.appending(path: "mclean-resources-\(UUID().uuidString)")
+        let home = FileManager.default.temporaryDirectory.appending(path: "maccleaner-resources-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: home) }
         let files = [
             "Library/Application Support/Foo Writer/data.db",
@@ -151,7 +151,7 @@ import Testing
 
 @Suite struct UninstallerTests {
     @Test func movesFilesToTheTrashAndRefusesProtectedItems() async throws {
-        let dir = FileManager.default.temporaryDirectory.appending(path: "mclean-uninstall-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appending(path: "maccleaner-uninstall-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appending(path: "junk.txt")
         try Data("x".utf8).write(to: file)

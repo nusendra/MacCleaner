@@ -23,7 +23,7 @@
 
 ## Rebuild (`Sources/AppUninstaller`)
 
-| CleanMyMac | MClean |
+| CleanMyMac | MacCleaner |
 |---|---|
 | `CMSystemApplicationsProvider` | `ApplicationDiscovery` |
 | `CMApplicationInfo` | `InstalledApplication` |
@@ -78,5 +78,5 @@
 ## Verification
 
 - `make test`: unit tests for the matcher, leftover rules, resource scanner, removal order and discovery.
-- `MCLEAN_E2E=1 make test` installs a probe app in the real home folder, with preferences, caches, support files and a loaded launch agent. It uninstalls the probe and asserts that the files are gone, the agent is unloaded and the defaults domain is cleared. The probe's files land in the Trash.
+- `MACCLEANER_E2E=1 make test` installs a probe app in the real home folder, with preferences, caches, support files and a loaded launch agent. It uninstalls the probe and asserts that the files are gone, the agent is unloaded and the defaults domain is cleared. The probe's files land in the Trash.
 - `.build/debug/junkscan --app <name>` and `--leftovers` are dry runs. They print what would be removed.

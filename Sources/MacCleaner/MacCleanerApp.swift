@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 
 @main
-struct MCleanApp: App {
+struct MacCleanerApp: App {
     init() {
-        // Developer aid: `MClean --snapshot out.png [width] [light|dark]` renders the Toolbox offscreen and exits.
+        // Developer aid: `MacCleaner --snapshot out.png [width] [light|dark]` renders the Toolbox offscreen and exits.
         if let flag = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > flag + 1 {
             let args = CommandLine.arguments
             let width = args.count > flag + 2 ? Double(args[flag + 2]) ?? 900 : 900
@@ -18,7 +18,7 @@ struct MCleanApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("MClean") {
+        WindowGroup("MacCleaner") {
             ToolboxView()
         }
     }

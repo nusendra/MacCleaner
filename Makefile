@@ -21,7 +21,7 @@ build:
 	swift build
 
 run:
-	swift run MClean
+	swift run MacCleaner
 
 test:
 	swift test $(TEST_FLAGS)
