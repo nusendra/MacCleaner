@@ -209,7 +209,8 @@ struct CheckBox: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // Inside a selectable List, plain-style buttons lose clicks to row selection; borderless ones receive them.
+        .buttonStyle(.borderless)
         .accessibilityLabel(label)
         .accessibilityValue(state == .on ? "selected" : state == .mixed ? "partly selected" : "not selected")
     }

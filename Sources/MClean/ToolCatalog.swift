@@ -1,5 +1,3 @@
-import LookupService
-
 /// Text a tool exposes to search, split by how much each field should count.
 struct ToolSearchPayload: Hashable, Sendable {
     var title: String
@@ -33,20 +31,6 @@ struct Tool: Identifiable, Hashable, Sendable {
 enum ToolDestination: Hashable {
     case junk(JunkFlow)
     case applications(AppsSection)
-}
-
-extension Tool {
-    /// Field weights: title and module name dominate, curated keywords help, shared keywords barely nudge.
-    var lookupDocument: LookupDocument<String> {
-        LookupDocument(id: id, sources: [
-            WeightedStrings(weight: 120, values: [search.title], tag: "title"),
-            WeightedStrings(weight: 40, values: search.flowKeywords, tag: "flow_keywords"),
-            WeightedStrings(weight: 60, values: [search.description], tag: "description"),
-            WeightedStrings(weight: 25, values: search.sharedKeywords, tag: "shared_keywords"),
-            WeightedStrings(weight: 110, values: [search.moduleName], tag: "module_name"),
-            WeightedStrings(weight: 50, values: search.searchKeywords, tag: "search_keywords"),
-        ])
-    }
 }
 
 enum ToolCatalog {

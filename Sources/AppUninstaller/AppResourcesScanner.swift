@@ -7,53 +7,99 @@ import Security
 public struct AppResourcesScanner: Sendable {
     public var paths: JunkPaths
     public var ignore: IgnoreSnapshot
-    /// Dock tiles read once per scan (`defaults export com.apple.dock`), keyed by app path.
+    /// Dock tiles read once per scanner (`defaults export com.apple.dock`), keyed by app path.
     public var dockAppPaths: Set<String>
+    /// Installed package identifiers, read once per scanner (`pkgutil --pkgs`).
+    public var packageIDs: [String]
+    /// Without Full Disk Access, macOS prompts (and blocks the reading thread) when another app's container
+    /// or ~/Downloads is opened, so those locations are only listed, not opened or sized.
+    public var hasFullDiskAccess: Bool
 
-    public init(paths: JunkPaths = .current, ignore: IgnoreSnapshot = IgnoreList.shared.snapshot(), dockAppPaths: Set<String> = DockTiles.appPaths()) {
+    public init(
+        paths: JunkPaths = .current,
+        ignore: IgnoreSnapshot = IgnoreList.shared.snapshot(),
+        dockAppPaths: Set<String> = DockTiles.appPaths(),
+        packageIDs: [String] = AppResourcesScanner.installedPackageIDs(),
+        hasFullDiskAccess: Bool = Permissions.hasFullDiskAccess
+    ) {
         self.paths = paths
         self.ignore = ignore
         self.dockAppPaths = dockAppPaths
+        self.packageIDs = packageIDs
+        self.hasFullDiskAccess = hasFullDiskAccess
+    }
+
+    public struct Scan: Sendable {
+        public var resources: [AppResource]
+        /// Locations that did not answer before the deadline (usually a pending privacy prompt).
+        public var skippedLocations: [String]
     }
 
     public func resources(for app: InstalledApplication) -> [AppResource] {
+        scan(app, deadline: .seconds(60)).resources
+    }
+
+    /// Runs every location family in parallel and returns whatever finished before `deadline`.
+    public func scan(_ app: InstalledApplication, deadline: Duration = .seconds(15)) -> Scan {
         let matcher = ResourceMatcher(bundleID: app.bundleIdentifier, name: app.name)
-        var found: [AppResource] = []
-        var seen = Set<String>()
-        func add(_ resource: AppResource?) {
-            guard let resource, !ignore.isIgnored(resource.url), seen.insert(resource.path).inserted else { return }
-            found.append(resource)
-        }
-
-        if let bundle = app.url {
-            let removable = !app.isSystem && !app.isAppStore && FileManager.default.isDeletableFile(atPath: bundle.path) && bundle.path != Bundle.main.bundlePath
-            let note = app.isAppStore ? "App Store apps are removed with Launchpad or Finder."
-                : app.isSystem ? "Protected system app. Remove its files to reset it." : nil
-            add(AppResource(path: bundle.path, group: .binaries, size: FileSizer.allocatedSize(of: bundle), isRemovable: removable, removal: .trash(bundle), note: note))
-        }
-
         let lib = paths.library
         let local = URL(fileURLWithPath: "/Library")
-        searchChildren(of: [lib.appending(path: "Application Support"), local.appending(path: "Application Support")], matcher, group: .supportingFiles).forEach(add)
-        var cacheRoots = [paths.userCaches]
-        if let darwin = paths.darwinUserCacheDirectory { cacheRoots.append(darwin) }
-        searchChildren(of: cacheRoots, matcher, group: .caches).forEach(add)
-        searchChildren(of: [paths.temporaryDirectory], matcher, group: .caches).forEach(add)
-        searchChildren(of: [lib.appending(path: "Logs"), local.appending(path: "Logs")], matcher, group: .logs).forEach(add)
-        searchChildren(of: [lib.appending(path: "PDF Services"), local.appending(path: "PDF Services")], ResourceMatcher(bundleID: nil, name: app.name), group: .plugins).forEach(add)
-        searchChildren(of: [lib, local], matcher, group: .userData).forEach(add)
-        preferences(matcher, roots: [paths.userPreferences, local.appending(path: "Preferences")]).forEach(add)
-        exactItems(for: app).forEach(add)
-        crashReports(for: app).forEach(add)
-        launchAgents(for: app).forEach(add)
-        loginItemHelpers(for: app).forEach(add)
-        plugins(for: app).forEach(add)
-        downloadedInstallers(for: app).forEach(add)
-        packageFiles(for: app).forEach(add)
-        if let bundle = app.url, dockAppPaths.contains(bundle.path) {
-            add(AppResource(path: bundle.path + "#dock", group: .dockIcon, size: 0, removal: .dockTile(appPath: bundle.path)))
+        let cacheRoots = [paths.userCaches, paths.darwinUserCacheDirectory].compactMap { $0 }
+
+        let fetchers: [(String, @Sendable () -> [AppResource])] = [
+            ("App bundle", { bundleResource(for: app).map { [$0] } ?? [] }),
+            ("Application Support", { searchChildren(of: [lib.appending(path: "Application Support"), local.appending(path: "Application Support")], matcher, group: .supportingFiles) }),
+            ("Caches", { searchChildren(of: cacheRoots + [paths.temporaryDirectory], matcher, group: .caches) }),
+            ("Logs", { searchChildren(of: [lib.appending(path: "Logs"), local.appending(path: "Logs")], matcher, group: .logs) }),
+            ("PDF Services", { searchChildren(of: [lib.appending(path: "PDF Services"), local.appending(path: "PDF Services")], ResourceMatcher(bundleID: nil, name: app.name), group: .plugins) }),
+            ("Library", { searchChildren(of: [lib, local], matcher, group: .userData) }),
+            ("Preferences", { preferences(matcher, roots: [paths.userPreferences, local.appending(path: "Preferences")]) }),
+            ("Containers", { exactItems(for: app) }),
+            ("Crash reports", { crashReports(for: app) }),
+            ("Launch agents", { launchAgents(for: app) }),
+            ("Login items", { loginItemHelpers(for: app) }),
+            ("Plug-ins", { plugins(for: app) }),
+            ("Downloads", { hasFullDiskAccess ? downloadedInstallers(for: app) : [] }),
+            ("Installer packages", { packageFiles(for: app) }),
+            ("Dock", {
+                guard let bundle = app.url, dockAppPaths.contains(bundle.path) else { return [] }
+                return [AppResource(path: bundle.path + "#dock", group: .dockIcon, size: 0, removal: .dockTile(appPath: bundle.path))]
+            }),
+        ]
+
+        let collector = FetchCollector(count: fetchers.count)
+        let group = DispatchGroup()
+        for (index, fetcher) in fetchers.enumerated() {
+            DispatchQueue.global(qos: .userInitiated).async(group: group) {
+                collector.store(fetcher.1(), at: index)
+            }
         }
-        return found
+        _ = group.wait(timeout: .now() + .milliseconds(Int(deadline.components.seconds * 1000)))
+
+        // Merge in fetcher order so the bundle comes first and duplicates keep their first group.
+        let results = collector.snapshot()
+        var found: [AppResource] = []
+        var seen = Set<String>()
+        for case let resources? in results {
+            for resource in resources where !ignore.isIgnored(resource.url) && seen.insert(resource.path).inserted {
+                found.append(resource)
+            }
+        }
+        let skipped = zip(fetchers, results).filter { $0.1 == nil }.map(\.0.0)
+        return Scan(resources: found, skippedLocations: skipped)
+    }
+
+    func bundleResource(for app: InstalledApplication) -> AppResource? {
+        guard let bundle = app.url else { return nil }
+        let removable = !app.isSystem && !app.isAppStore && FileManager.default.isDeletableFile(atPath: bundle.path) && bundle.path != Bundle.main.bundlePath
+        let note = app.isAppStore ? "App Store apps are removed with Launchpad or Finder."
+            : app.isSystem ? "Protected system app. Remove its files to reset it." : nil
+        return AppResource(path: bundle.path, group: .binaries, size: FileSizer.allocatedSize(of: bundle), isRemovable: removable, removal: .trash(bundle), note: note)
+    }
+
+    public static func installedPackageIDs() -> [String] {
+        guard let output = try? ProcessRunner.run("/usr/sbin/pkgutil", ["--pkgs"], timeout: 20), output.status == 0 else { return [] }
+        return String(decoding: output.stdout, as: UTF8.self).split(separator: "\n").map(String.init)
     }
 
     // MARK: Fetchers
@@ -99,11 +145,20 @@ public struct AppResourcesScanner: Sendable {
         let containers = (try? FileManager.default.contentsOfDirectory(at: lib.appending(path: "Containers"), includingPropertiesForKeys: nil)) ?? []
         items += containers
             .filter { $0.lastPathComponent == id || $0.lastPathComponent.hasPrefix(id + ".") }
-            .map { fileResource($0, group: .containers) }
+            .map(containerResource)
         if let url = app.url {
-            items += Self.applicationGroups(of: url).map { fileResource(lib.appending(path: "Group Containers/\($0)"), group: .containers) }
+            items += Self.applicationGroups(of: url).map { containerResource(lib.appending(path: "Group Containers/\($0)")) }
         }
         return items.compactMap { $0 }
+    }
+
+    /// Opening another app's container without Full Disk Access triggers a blocking privacy prompt,
+    /// so without it the container is listed (its existence is visible) but not sized.
+    func containerResource(_ url: URL) -> AppResource? {
+        if hasFullDiskAccess { return fileResource(url, group: .containers) }
+        let path = url.standardizedFileURL.path
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        return AppResource(path: path, group: .containers, size: 0, removal: .trash(url), note: "Size unknown: grant Full Disk Access to measure it")
     }
 
     /// `<name>_<date>.crash|diag|hang|spin|ips` in the user and system diagnostic folders.
@@ -189,11 +244,8 @@ public struct AppResourcesScanner: Sendable {
 
     /// Files installed by a package whose identifier is the bundle id (or bundle id + `.pkg`), collapsed to top-level bundles.
     func packageFiles(for app: InstalledApplication) -> [AppResource] {
-        guard let id = app.bundleIdentifier?.lowercased(),
-              let output = try? ProcessRunner.run("/usr/sbin/pkgutil", ["--pkgs"], timeout: 20), output.status == 0
-        else { return [] }
-        let packages = String(decoding: output.stdout, as: UTF8.self).split(separator: "\n").map(String.init)
-            .filter { $0.lowercased() == id || $0.lowercased() == id + ".pkg" }
+        guard let id = app.bundleIdentifier?.lowercased() else { return [] }
+        let packages = packageIDs.filter { $0.lowercased() == id || $0.lowercased() == id + ".pkg" }
         return packages.flatMap { package -> [AppResource] in
             let info = (try? ProcessRunner.run("/usr/sbin/pkgutil", ["--pkg-info-plist", package], timeout: 20)).flatMap {
                 try? PropertyListSerialization.propertyList(from: $0.stdout, format: nil) as? [String: Any]
@@ -245,6 +297,24 @@ public struct AppResourcesScanner: Sendable {
               let entitlements = dict[kSecCodeInfoEntitlementsDict as String] as? [String: Any]
         else { return [] }
         return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
+}
+
+/// Collects fetcher results from concurrent threads; unfinished slots stay nil.
+private final class FetchCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [[AppResource]?]
+
+    init(count: Int) {
+        results = Array(repeating: nil, count: count)
+    }
+
+    func store(_ resources: [AppResource], at index: Int) {
+        lock.withLock { results[index] = resources }
+    }
+
+    func snapshot() -> [[AppResource]?] {
+        lock.withLock { results }
     }
 }
 

@@ -59,7 +59,26 @@ final class ApplicationsViewModel: ObservableObject {
     @Published var runningConflict: RunningConflict?
     @Published var forceQuitAvailable = false
 
+    @Published private(set) var skippedLocations: [String: [String]] = [:]
+    @Published private(set) var pendingSelection: Set<String> = []
+    @Published private(set) var hasFullDiskAccess = Permissions.hasFullDiskAccess
+
     private var loadingResources: Set<String> = []
+    private var scanner: AppResourcesScanner?
+    /// Background prefetch (leftover sizes) runs two at a time so it never crowds out what the user clicked.
+    private let prefetchQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 2
+        queue.qualityOfService = .utility
+        return queue
+    }()
+
+    private let sizingQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 3
+        queue.qualityOfService = .utility
+        return queue
+    }()
 
     init(section: AppsSection) {
         self.section = section
@@ -69,48 +88,69 @@ final class ApplicationsViewModel: ObservableObject {
 
     func load() {
         phase = .loading
+        hasFullDiskAccess = Permissions.hasFullDiskAccess
         Task {
-            let (apps, leftovers) = await Task.detached(priority: .userInitiated) { () -> ([InstalledApplication], [InstalledApplication]) in
+            let (apps, leftovers, scanner) = await Self.offMain { () -> ([InstalledApplication], [InstalledApplication], AppResourcesScanner) in
                 let home = JunkPaths.current.home
                 let apps = ApplicationDiscovery.installedApplications(home: home)
                 let installed = ApplicationDiscovery.installedBundleIdentifiers(apps: apps, home: home)
                 let leftovers = LeftoversScanner().candidates(installedIDs: installed)
                     .map { InstalledApplication(leftoverBundleID: $0.bundleID, name: $0.name) }
-                return (apps, leftovers)
-            }.value
+                return (apps, leftovers, AppResourcesScanner())
+            }
+            self.scanner = scanner
             self.apps = apps
             self.leftovers = leftovers
             self.phase = .ready
             self.focusedID = self.visibleApps.first?.id
+            if let focused = self.focusedApp { self.loadResources(for: focused) }
             self.measureBundles()
-            // Leftovers have no bundle, so their size is the size of their files: load them all up front.
-            leftovers.forEach { self.loadResources(for: $0) }
+            // Leftovers have no bundle, so their size is the size of their files: prefetch them in the background.
+            leftovers.forEach { self.loadResources(for: $0, background: true) }
+        }
+    }
+
+    /// Runs blocking file-system work on a GCD queue instead of Swift's small cooperative thread pool,
+    /// so a slow or blocked read can never starve the rest of the app.
+    nonisolated static func offMain<T: Sendable>(qos: DispatchQoS.QoSClass = .userInitiated, _ work: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: qos).async { continuation.resume(returning: work()) }
         }
     }
 
     /// Bundle sizes for the list, computed in the background a few apps at a time.
     private func measureBundles() {
-        let targets = apps.compactMap { app in app.url.map { (app.id, $0) } }
-        // Child tasks size bundles off the main actor; results are applied here as they arrive.
-        Task(priority: .utility) {
-            await withTaskGroup(of: (String, Int64).self) { group in
-                var iterator = targets.makeIterator()
-                for _ in 0..<4 { if let (id, url) = iterator.next() { group.addTask { (id, FileSizer.allocatedSize(of: url)) } } }
-                for await (id, size) in group {
-                    sizes[id] = size
-                    if let (id, url) = iterator.next() { group.addTask { (id, FileSizer.allocatedSize(of: url)) } }
-                }
+        for app in apps {
+            guard let url = app.url else { continue }
+            let id = app.id
+            sizingQueue.addOperation {
+                let size = FileSizer.allocatedSize(of: url)
+                Task { @MainActor [weak self] in self?.sizes[id] = size }
             }
         }
     }
 
-    func loadResources(for app: InstalledApplication) {
-        guard resources[app.id] == nil, loadingResources.insert(app.id).inserted else { return }
-        Task {
-            let found = await Task.detached(priority: .userInitiated) { AppResourcesScanner().resources(for: app) }.value
-            self.resources[app.id] = found
-            self.loadingResources.remove(app.id)
-            if app.isLeftover { self.sizes[app.id] = found.reduce(0) { $0 + $1.size } }
+    func loadResources(for app: InstalledApplication, background: Bool = false) {
+        guard let scanner, resources[app.id] == nil, loadingResources.insert(app.id).inserted else { return }
+        let finish: @Sendable (AppResourcesScanner.Scan) -> Void = { scan in
+            Task { @MainActor [weak self] in self?.apply(scan, for: app) }
+        }
+        if background {
+            prefetchQueue.addOperation { finish(scanner.scan(app)) }
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async { finish(scanner.scan(app)) }
+        }
+    }
+
+    private func apply(_ scan: AppResourcesScanner.Scan, for app: InstalledApplication) {
+        guard resources[app.id] == nil else { return }
+        resources[app.id] = scan.resources
+        skippedLocations[app.id] = scan.skippedLocations
+        loadingResources.remove(app.id)
+        if app.isLeftover { sizes[app.id] = scan.resources.reduce(0) { $0 + $1.size } }
+        // A checkbox clicked before the files were known selects them now.
+        if pendingSelection.remove(app.id) != nil {
+            selection.formUnion(scan.resources.filter(\.isRemovable).map { key(app, $0) })
         }
     }
 
@@ -167,7 +207,8 @@ final class ApplicationsViewModel: ObservableObject {
     }
 
     func appState(_ app: InstalledApplication) -> CheckState {
-        state(of: (resources[app.id] ?? []).filter(\.isRemovable).map { key(app, $0) })
+        if pendingSelection.contains(app.id) { return .on }
+        return state(of: (resources[app.id] ?? []).filter(\.isRemovable).map { key(app, $0) })
     }
 
     private func state(of keys: [String]) -> CheckState {
@@ -176,24 +217,31 @@ final class ApplicationsViewModel: ObservableObject {
         return selected == keys.count ? .on : .mixed
     }
 
-    /// Checking an app selects everything removable once its files are known.
+    /// Checking an app selects everything removable; if its files are still loading, the box shows checked
+    /// right away and the selection is applied when they arrive.
     func toggle(app: InstalledApplication) {
         guard let found = resources[app.id] else {
-            loadResources(for: app)
-            pendingSelection.insert(app.id)
-            Task { await self.applyPendingSelection(for: app) }
+            if pendingSelection.remove(app.id) == nil {
+                pendingSelection.insert(app.id)
+                loadResources(for: app)
+            }
             return
         }
         let keys = found.filter(\.isRemovable).map { key(app, $0) }
         if appState(app) == .on { selection.subtract(keys) } else { selection.formUnion(keys) }
     }
 
-    private var pendingSelection: Set<String> = []
+    func isLoading(_ app: InstalledApplication) -> Bool { resources[app.id] == nil }
 
-    private func applyPendingSelection(for app: InstalledApplication) async {
-        while resources[app.id] == nil { try? await Task.sleep(for: .milliseconds(50)) }
-        guard pendingSelection.remove(app.id) != nil else { return }
-        selection.formUnion((resources[app.id] ?? []).filter(\.isRemovable).map { key(app, $0) })
+    func openFullDiskAccessSettings() {
+        NSWorkspace.shared.open(Permissions.fullDiskAccessSettingsURL)
+    }
+
+    func refreshPermissions() {
+        let granted = Permissions.hasFullDiskAccess
+        guard granted != hasFullDiskAccess else { return }
+        hasFullDiskAccess = granted
+        load() // rescan so containers and Downloads are included
     }
 
     var selectedPairs: [(InstalledApplication, AppResource)] {

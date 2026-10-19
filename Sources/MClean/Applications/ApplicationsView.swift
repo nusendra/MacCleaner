@@ -51,6 +51,10 @@ struct ApplicationsView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            if !viewModel.hasFullDiskAccess {
+                FullDiskAccessBanner(viewModel: viewModel)
+                Divider()
+            }
             HSplitView {
                 AppListPane(viewModel: viewModel)
                     .frame(minWidth: 280, idealWidth: 320, maxWidth: 420)
@@ -211,12 +215,17 @@ private struct AppDetailPane: View {
                         if resources.isEmpty {
                             Text("No files found.").foregroundStyle(.secondary)
                         }
+                        if let skipped = viewModel.skippedLocations[app.id], !skipped.isEmpty {
+                            Label("Not checked (no answer in time): \(skipped.joined(separator: ", ")). macOS may be waiting for you to allow access.", systemImage: "exclamationmark.triangle")
+                                .font(.callout)
+                                .foregroundStyle(.orange)
+                        }
                         ForEach(ResourceGroup.allCases, id: \.self) { group in
                             let items = resources.filter { $0.group == group }
                             if !items.isEmpty { GroupSection(app: app, group: group, items: items, viewModel: viewModel) }
                         }
                     } else {
-                        HStack { ProgressView().controlSize(.small); Text("Finding related files…").foregroundStyle(.secondary) }
+                        LoadingFilesView().id(app.id)
                     }
                 }
                 .padding(20)
@@ -296,6 +305,56 @@ private struct GroupSection: View {
 
     private func abbreviated(_ path: String) -> String {
         path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+}
+
+/// Spinner that explains itself if the scan takes unusually long.
+private struct LoadingFilesView: View {
+    @State private var slow = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Finding related files…").foregroundStyle(.secondary)
+            }
+            if slow {
+                Text("This is taking longer than usual. If macOS asked for permission to access files, answer that prompt; results appear within 15 seconds either way.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(4))
+            slow = true
+        }
+    }
+}
+
+private struct FullDiskAccessBanner: View {
+    @ObservedObject var viewModel: ApplicationsViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "lock.shield")
+                .font(.title2)
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Limited access").font(.headline)
+                Text("Without Full Disk Access, other apps' containers are listed without sizes and downloaded installers are skipped. Grant it to the app you start MClean from (for example Terminal), then check again.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Open Settings") { viewModel.openFullDiskAccessSettings() }
+            Button("Check Again") { viewModel.refreshPermissions() }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.08))
     }
 }
 
