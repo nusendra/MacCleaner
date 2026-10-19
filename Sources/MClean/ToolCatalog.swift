@@ -63,13 +63,6 @@ enum ToolCatalog {
             sharedKeywords: ["apps"],
             flowKeywords: ["orphan", "remnants"],
             searchKeywords: ["leftover", "residue"])),
-        Tool(id: "updater", symbol: "arrow.triangle.2.circlepath", search: .init(
-            title: "App Updater",
-            description: "Update outdated apps in one go.",
-            moduleName: "Applications",
-            sharedKeywords: ["apps"],
-            flowKeywords: ["upgrade", "new version"],
-            searchKeywords: ["update"])),
         Tool(id: "space-lens", symbol: "circle.hexagongrid", search: .init(
             title: "Space Lens",
             description: "Visualize folders by size to see what takes up your disk.",
@@ -91,27 +84,6 @@ enum ToolCatalog {
             sharedKeywords: ["free space"],
             flowKeywords: ["copies", "similar photos"],
             searchKeywords: ["duplicate", "dupes"])),
-        Tool(id: "malware", symbol: "shield.lefthalf.filled", search: .init(
-            title: "Malware Removal",
-            description: "Scan for adware, viruses and other threats.",
-            moduleName: "Protection",
-            sharedKeywords: ["security"],
-            flowKeywords: ["virus", "adware"],
-            searchKeywords: ["malware", "threat", "scan"])),
-        Tool(id: "privacy", symbol: "hand.raised", search: .init(
-            title: "Privacy",
-            description: "Clear browser history, cookies and recent items.",
-            moduleName: "Protection",
-            sharedKeywords: ["security"],
-            flowKeywords: ["browser history", "cookies"],
-            searchKeywords: ["privacy", "tracks"])),
-        Tool(id: "login-items", symbol: "power", search: .init(
-            title: "Login Items",
-            description: "Control which apps launch when you log in.",
-            moduleName: "Performance",
-            sharedKeywords: ["speed"],
-            flowKeywords: ["startup", "launch agents"],
-            searchKeywords: ["boot", "autostart"])),
         Tool(id: "maintenance", symbol: "wrench.and.screwdriver", search: .init(
             title: "Maintenance",
             description: "Run scripts, free RAM and reindex Spotlight.",
