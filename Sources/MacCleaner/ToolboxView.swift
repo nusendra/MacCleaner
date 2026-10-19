@@ -17,7 +17,7 @@ struct ToolboxView: View {
                 }
             }
         }
-        .frame(minWidth: 720, minHeight: 520)
+        .frame(minWidth: 900, minHeight: 560)
     }
 
     private func open(_ tool: Tool) -> (() -> Void)? {
@@ -30,8 +30,9 @@ struct ToolboxGrid: View {
     @ObservedObject var viewModel: ToolboxViewModel
     let open: (Tool) -> (() -> Void)?
 
-    /// Columns grow to fill the window; each is at least 260 pt so a description fits in two lines.
-    private let columns = [GridItem(.adaptive(minimum: 260), spacing: 16, alignment: .top)]
+    /// Always three columns that share the width; the window's minimum width keeps each wide enough
+    /// for a two-line description.
+    private let columns = Array(repeating: GridItem(.flexible(minimum: 240), spacing: 16, alignment: .top), count: 3)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {

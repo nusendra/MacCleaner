@@ -21,5 +21,7 @@ struct MacCleanerApp: App {
         WindowGroup("MacCleaner") {
             ToolboxView()
         }
+        // Fits the whole Toolbox (three columns, every card) without resizing.
+        .defaultSize(width: 1000, height: 720)
     }
 }
