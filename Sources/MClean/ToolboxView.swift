@@ -3,7 +3,7 @@ import SwiftUI
 struct ToolboxView: View {
     @StateObject private var viewModel = ToolboxSearchViewModel()
     @FocusState private var searchFocused: Bool
-    @State private var path: [JunkFlow] = []
+    @State private var path: [ToolDestination] = []
 
     private let columns = [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 16)]
     private let suggestions = ["cache", "uninstall", "free space", "virus"]
@@ -20,14 +20,19 @@ struct ToolboxView: View {
                 }
             }
             .background(Color(nsColor: .windowBackgroundColor))
-            .navigationDestination(for: JunkFlow.self) { SystemJunkView(flow: $0) }
+            .navigationDestination(for: ToolDestination.self) { destination in
+                switch destination {
+                case .junk(let flow): SystemJunkView(flow: flow)
+                case .applications(let section): ApplicationsView(section: section)
+                }
+            }
         }
         .frame(minWidth: 720, minHeight: 520)
         .onAppear { searchFocused = true }
     }
 
     private func open(_ tool: Tool) -> (() -> Void)? {
-        tool.flow.map { flow in { path.append(flow) } }
+        tool.destination.map { destination in { path.append(destination) } }
     }
 
     private var header: some View {

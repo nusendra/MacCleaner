@@ -195,7 +195,8 @@ struct SystemJunkView: View {
 
 // MARK: Rows
 
-private struct CheckBox: View {
+/// Tri-state checkbox shared by the junk and applications screens.
+struct CheckBox: View {
     let state: CheckState
     let label: String
     let action: () -> Void

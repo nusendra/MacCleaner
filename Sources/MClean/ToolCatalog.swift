@@ -19,13 +19,20 @@ struct Tool: Identifiable, Hashable, Sendable {
     var description: String { search.description }
 
     /// The screen this tool opens, if it is implemented.
-    var flow: JunkFlow? {
+    var destination: ToolDestination? {
         switch id {
-        case "system-junk": .systemJunk
-        case "trash-bins": .trashBins
+        case "system-junk": .junk(.systemJunk)
+        case "trash-bins": .junk(.trashBins)
+        case "uninstaller": .applications(.applications)
+        case "leftovers": .applications(.leftovers)
         default: nil
         }
     }
+}
+
+enum ToolDestination: Hashable {
+    case junk(JunkFlow)
+    case applications(AppsSection)
 }
 
 extension Tool {

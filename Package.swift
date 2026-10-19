@@ -12,9 +12,11 @@ let package = Package(
     targets: [
         .target(name: "LookupService"),
         .target(name: "JunkCleanup"),
-        .executableTarget(name: "MClean", dependencies: ["LookupService", "JunkCleanup"]),
-        .executableTarget(name: "junkscan", dependencies: ["JunkCleanup"]),
+        .target(name: "AppUninstaller", dependencies: ["JunkCleanup"]),
+        .executableTarget(name: "MClean", dependencies: ["LookupService", "JunkCleanup", "AppUninstaller"]),
+        .executableTarget(name: "junkscan", dependencies: ["JunkCleanup", "AppUninstaller"]),
         .testTarget(name: "LookupServiceTests", dependencies: ["LookupService"]),
         .testTarget(name: "JunkCleanupTests", dependencies: ["JunkCleanup"]),
+        .testTarget(name: "AppUninstallerTests", dependencies: ["AppUninstaller", "JunkCleanup"]),
     ]
 )

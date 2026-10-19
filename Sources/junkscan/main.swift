@@ -1,3 +1,4 @@
+import AppUninstaller
 import Foundation
 import JunkCleanup
 
@@ -10,6 +11,32 @@ if let flag = CommandLine.arguments.firstIndex(of: "--languages"), CommandLine.a
     let app = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
     for (_, folders) in JunkCleanupInspection.removableLocalizations(in: app) {
         folders.forEach { print($0.path) }
+    }
+    exit(0)
+}
+
+// `junkscan --app <name>` lists every file the uninstaller would attribute to that app.
+// `junkscan --leftovers` lists bundle ids with files but no installed app.
+let apps = CommandLine.arguments.contains("--app") || CommandLine.arguments.contains("--leftovers") ? ApplicationDiscovery.installedApplications() : []
+if let flag = CommandLine.arguments.firstIndex(of: "--app"), CommandLine.arguments.count > flag + 1 {
+    let query = CommandLine.arguments[flag + 1].lowercased()
+    let scanner = AppResourcesScanner()
+    for app in apps where app.displayName.lowercased().contains(query) {
+        print("\(app.displayName) [\(app.bundleIdentifier ?? "-")] store=\(app.store.rawValue) system=\(app.isSystem) unused=\(app.isUnused())")
+        for resource in scanner.resources(for: app).sorted(by: { ($0.group.rawValue, $0.path) < ($1.group.rawValue, $1.path) }) {
+            print("   \(resource.isRemovable ? "[x]" : "[ ]") \(resource.group.rawValue): \(resource.path) \(size(resource.size))")
+        }
+    }
+    exit(0)
+}
+if CommandLine.arguments.contains("--leftovers") {
+    let installed = ApplicationDiscovery.installedBundleIdentifiers(apps: apps, home: JunkPaths.current.home)
+    let leftovers = LeftoversScanner().candidates(installedIDs: installed)
+    let scanner = AppResourcesScanner()
+    for candidate in leftovers {
+        let resources = scanner.resources(for: InstalledApplication(leftoverBundleID: candidate.bundleID, name: candidate.name))
+        print("\(candidate.bundleID) (\(candidate.name)) \(size(resources.reduce(0) { $0 + $1.size })) from \(candidate.sourcePath)")
+        resources.forEach { print("     \($0.group.rawValue): \($0.path)") }
     }
     exit(0)
 }
