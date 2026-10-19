@@ -14,6 +14,7 @@ struct ToolboxView: View {
                 switch destination {
                 case .junk(let flow): SystemJunkView(flow: flow)
                 case .applications(let section): ApplicationsView(section: section)
+                case .spaceLens: SpaceLensView()
                 }
             }
         }

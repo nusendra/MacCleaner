@@ -23,6 +23,7 @@ struct Tool: Identifiable, Hashable, Sendable {
         case "trash-bins": .junk(.trashBins)
         case "uninstaller": .applications(.applications)
         case "leftovers": .applications(.leftovers)
+        case "space-lens": .spaceLens
         default: nil
         }
     }
@@ -31,6 +32,7 @@ struct Tool: Identifiable, Hashable, Sendable {
 enum ToolDestination: Hashable {
     case junk(JunkFlow)
     case applications(AppsSection)
+    case spaceLens
 }
 
 enum ToolCatalog {

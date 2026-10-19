@@ -1,6 +1,7 @@
 import AppUninstaller
 import Foundation
 import JunkCleanup
+import SpaceLens
 
 // Dry run: scans and prints what System Junk would offer. Never deletes anything.
 
@@ -37,6 +38,18 @@ if CommandLine.arguments.contains("--leftovers") {
         let resources = scanner.resources(for: InstalledApplication(leftoverBundleID: candidate.bundleID, name: candidate.name))
         print("\(candidate.bundleID) (\(candidate.name)) \(size(resources.reduce(0) { $0 + $1.size })) from \(candidate.sourcePath)")
         resources.forEach { print("     \($0.group.rawValue): \($0.path)") }
+    }
+    exit(0)
+}
+
+// `junkscan --lens <path>` builds the Space Lens tree and prints the biggest items (read-only).
+if let flag = CommandLine.arguments.firstIndex(of: "--lens"), CommandLine.arguments.count > flag + 1 {
+    let start = Date()
+    let tree = try await SpaceLensScanner().scan(URL(fileURLWithPath: CommandLine.arguments[flag + 1]))
+    func count(_ node: SpaceLensNode) -> Int { 1 + node.children.reduce(0) { $0 + count($1) } }
+    print(String(format: "%@: %@, %d nodes, %.1fs", tree.path, size(tree.size), count(tree), Date().timeIntervalSince(start)))
+    for child in tree.children.prefix(12) {
+        print("   \(size(child.size).padding(toLength: 10, withPad: " ", startingAt: 0)) \(child.name) \(child.kind == .needsAccess ? "(needs Full Disk Access)" : "")")
     }
     exit(0)
 }
