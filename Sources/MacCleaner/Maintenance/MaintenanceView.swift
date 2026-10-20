@@ -90,7 +90,7 @@ struct MaintenanceView: View {
                         }
                     }
                     if !viewModel.hasFullDiskAccess {
-                        Label("Speed Up Mail appears once MacCleaner's launching app has Full Disk Access.", systemImage: "lock.shield")
+                        Label("Speed Up Mail appears once \(FullDiskAccessTarget.name) has Full Disk Access.", systemImage: "lock.shield")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }

@@ -343,7 +343,7 @@ private struct FullDiskAccessBanner: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Limited access").font(.headline)
-                Text("Without Full Disk Access, other apps' containers are listed without sizes and downloaded installers are skipped. Grant it to the app you start MacCleaner from (for example Terminal), then check again.")
+                Text("Without Full Disk Access, other apps' containers are listed without sizes and downloaded installers are skipped. Grant it to \(FullDiskAccessTarget.name), then check again.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

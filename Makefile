@@ -6,7 +6,7 @@ TEST_LIBS := $(CLT)/Library/Developer/usr/lib
 
 export DEVELOPER_DIR := $(CLT)
 export PATH := $(CLT)/usr/bin:$(PATH)
-unexport SDKROOT
+export SDKROOT := $(CLT)/SDKs/MacOSX.sdk
 
 # Command Line Tools ship the `_Testing_Foundation` overlay without module files,
 # so tests that import Foundation and Testing together need cross-import overlays off.
@@ -15,7 +15,7 @@ TEST_FLAGS := -Xswiftc -F$(FRAMEWORKS) \
 	-Xlinker -rpath -Xlinker $(FRAMEWORKS) \
 	-Xlinker -rpath -Xlinker $(TEST_LIBS)
 
-.PHONY: build run test clean
+.PHONY: build run test clean app dmg install icon
 
 build:
 	swift build
@@ -28,3 +28,21 @@ test:
 
 clean:
 	swift package clean
+
+# Packaging. VERSION=1.2.0 and SIGN_IDENTITY="Developer ID Application: …" are passed through.
+app:
+	scripts/build-app.sh
+
+dmg: app
+	scripts/make-dmg.sh
+
+install: app
+	rm -rf /Applications/MacCleaner.app
+	ditto dist/MacCleaner.app /Applications/MacCleaner.app
+	@echo "Installed /Applications/MacCleaner.app"
+
+# Regenerates Resources/AppIcon.icns from scripts/make-icon.swift.
+icon:
+	swift scripts/make-icon.swift .build/AppIcon.iconset
+	iconutil -c icns .build/AppIcon.iconset -o Resources/AppIcon.icns
+

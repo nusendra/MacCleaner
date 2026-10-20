@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>MacCleaner</string>
+	<key>CFBundleExecutable</key>
+	<string>MacCleaner</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.nusendra.MacCleaner</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>MacCleaner</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(BUILD)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 nusendra</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>MacCleaner looks for duplicates and large items in your Desktop folder.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>MacCleaner looks for duplicates and large items in your Documents folder.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>MacCleaner finds leftover installers and duplicates in your Downloads folder.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>MacCleaner can scan external drives and empty their Trash.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>MacCleaner can scan network drives you choose.</string>
+</dict>
+</plist>

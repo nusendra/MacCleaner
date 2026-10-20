@@ -2,6 +2,13 @@ import AppKit
 import SpaceLens
 import SwiftUI
 
+/// Who needs Full Disk Access: the installed app itself, or, for `swift run` builds, the terminal that launched it.
+enum FullDiskAccessTarget {
+    static var name: String {
+        Bundle.main.bundleIdentifier == nil ? "the app you start MacCleaner from (for example Terminal)" : "MacCleaner"
+    }
+}
+
 /// Renders the Toolbox page to a PNG without opening a window, for checking layout changes.
 @MainActor
 enum Snapshot {
