@@ -1,4 +1,5 @@
 import AppUninstaller
+import Duplicates
 import Foundation
 import JunkCleanup
 import SpaceLens
@@ -50,6 +51,22 @@ if let flag = CommandLine.arguments.firstIndex(of: "--lens"), CommandLine.argume
     print(String(format: "%@: %@, %d nodes, %.1fs", tree.path, size(tree.size), count(tree), Date().timeIntervalSince(start)))
     for child in tree.children.prefix(12) {
         print("   \(size(child.size).padding(toLength: 10, withPad: " ", startingAt: 0)) \(child.name) \(child.kind == .needsAccess ? "(needs Full Disk Access)" : "")")
+    }
+    exit(0)
+}
+
+// `junkscan --dups <folder>` lists duplicate groups and similar photos (read-only).
+if let flag = CommandLine.arguments.firstIndex(of: "--dups"), CommandLine.arguments.count > flag + 1 {
+    let start = Date()
+    let result = try await DuplicatesScanner().scan(URL(fileURLWithPath: CommandLine.arguments[flag + 1]))
+    let wasted = result.duplicates.reduce(Int64(0)) { $0 + $1.wastedSize }
+    print(String(format: "%d files, %d duplicate groups (%@ removable), %d similar-photo groups, %.1fs",
+                 result.filesScanned, result.duplicates.count, size(wasted), result.similarImages.count, Date().timeIntervalSince(start)))
+    for group in result.duplicates.prefix(8) {
+        print("  \(group.title) ×\(group.files.count) \(size(group.size)) keep: \(group.files[group.keptIndex].path)")
+    }
+    for group in result.similarImages.prefix(5) {
+        print("  similar: " + group.images.map { ($0.isBest ? "★" : "") + $0.file.name }.joined(separator: ", "))
     }
     exit(0)
 }

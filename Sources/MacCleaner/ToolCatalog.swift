@@ -24,6 +24,8 @@ struct Tool: Identifiable, Hashable, Sendable {
         case "uninstaller": .applications(.applications)
         case "leftovers": .applications(.leftovers)
         case "space-lens": .spaceLens
+        case "maintenance": .maintenance
+        case "duplicates": .duplicates
         default: nil
         }
     }
@@ -33,6 +35,8 @@ enum ToolDestination: Hashable {
     case junk(JunkFlow)
     case applications(AppsSection)
     case spaceLens
+    case maintenance
+    case duplicates
 }
 
 enum ToolCatalog {
@@ -72,13 +76,6 @@ enum ToolCatalog {
             sharedKeywords: ["free space"],
             flowKeywords: ["folder size", "disk map"],
             searchKeywords: ["storage", "large files"])),
-        Tool(id: "large-old-files", symbol: "doc.badge.clock", search: .init(
-            title: "Large & Old Files",
-            description: "Review big files you have not opened in months.",
-            moduleName: "Storage",
-            sharedKeywords: ["free space"],
-            flowKeywords: ["big files", "old files"],
-            searchKeywords: ["large", "unused"])),
         Tool(id: "duplicates", symbol: "square.on.square", search: .init(
             title: "Duplicates",
             description: "Find identical files and similar photos.",

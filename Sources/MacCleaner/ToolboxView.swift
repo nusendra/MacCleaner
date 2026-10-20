@@ -15,6 +15,8 @@ struct ToolboxView: View {
                 case .junk(let flow): SystemJunkView(flow: flow)
                 case .applications(let section): ApplicationsView(section: section)
                 case .spaceLens: SpaceLensView()
+                case .maintenance: MaintenanceView()
+                case .duplicates: DuplicatesView()
                 }
             }
         }
