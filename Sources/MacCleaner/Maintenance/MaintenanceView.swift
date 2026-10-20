@@ -15,7 +15,7 @@ final class MaintenanceViewModel: ObservableObject {
     @Published var selected: Set<MaintenanceTask.ID> = Set(MaintenanceTask.available().filter(\.recommended).map(\.id))
     @Published private(set) var phase: Phase = .choosing
     @Published private(set) var memory = MemoryStats.current()
-    let hasFullDiskAccess = Permissions.hasFullDiskAccess
+    var hasFullDiskAccess: Bool { Permissions.hasFullDiskAccess }
 
     var selectedTasks: [MaintenanceTask] { tasks.filter { selected.contains($0.id) } }
     var needsPassword: Bool { selectedTasks.contains(where: \.needsAdmin) }

@@ -32,6 +32,8 @@ struct ApplicationsView: View {
         }
         .navigationTitle(viewModel.section == .leftovers ? "Leftovers" : "Uninstaller")
         .task { if case .loading = viewModel.phase { viewModel.load() } }
+        // Full Disk Access granted in System Settings applies as soon as the user comes back to the app.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in viewModel.refreshPermissions() }
         .confirmationDialog(confirmTitle, isPresented: $viewModel.confirmingRemoval, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) { viewModel.remove() }
             Button("Cancel", role: .cancel) {}

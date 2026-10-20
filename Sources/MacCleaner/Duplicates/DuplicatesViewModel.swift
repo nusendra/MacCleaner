@@ -60,7 +60,7 @@ final class DuplicatesViewModel: ObservableObject {
     @Published var selection: Set<String> = []
     @Published var confirmingRemoval = false
     @Published var confirmingSelectAll: MemberGroup?
-    let hasFullDiskAccess = Permissions.hasFullDiskAccess
+    var hasFullDiskAccess: Bool { Permissions.hasFullDiskAccess }
 
     private var scanner: DuplicatesScanner?
 

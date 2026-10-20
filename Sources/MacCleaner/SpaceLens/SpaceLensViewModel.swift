@@ -43,7 +43,7 @@ final class SpaceLensViewModel: ObservableObject {
     @Published private(set) var root: SpaceLensNode?
     @Published private(set) var current: SpaceLensNode?
     @Published private(set) var selection: [SpaceLensNode] = []
-    @Published private(set) var hasFullDiskAccess = Permissions.hasFullDiskAccess
+    var hasFullDiskAccess: Bool { Permissions.hasFullDiskAccess }
     @Published var smallerExpanded = false
     @Published var reviewing = false
     /// Bumps whenever the tree changes in place (expand, removal) so views recompute.
@@ -69,7 +69,6 @@ final class SpaceLensViewModel: ObservableObject {
     }
 
     func scan() {
-        hasFullDiskAccess = Permissions.hasFullDiskAccess
         let scanner = SpaceLensScanner(hasFullDiskAccess: hasFullDiskAccess)
         self.scanner = scanner
         phase = .scanning(nil)

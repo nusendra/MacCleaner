@@ -241,3 +241,17 @@ private final class FakeHome {
         #expect(report.failures.map(\.item.name) == ["bad"])
     }
 }
+
+@Suite struct PermissionsTests {
+    @Test func probesMissingAndUnreadablePathsAsNoAccess() {
+        #expect(!Permissions.canRead("/nonexistent/\(UUID().uuidString)"))
+        #expect(Permissions.canRead("/usr/bin"))
+        #expect(Permissions.canRead("/etc/hosts"))
+    }
+
+    @Test func probeSetCoversMoreThanTheMovedUserDatabase() {
+        // macOS 27 dropped the per-user TCC.db; detection must not depend on it alone.
+        #expect(Permissions.probePaths.count > 2)
+        #expect(Permissions.probePaths.contains("/Library/Application Support/com.apple.TCC/TCC.db"))
+    }
+}
